@@ -58,67 +58,103 @@ class QueueCalculator extends Component
                 if ($rho >= 1) throw new \Exception("Inestable (λ ≥ μ)");
                 $lq = pow($l, 2) / ($m * ($m - $l));
                 $wq = $lq / $l; $ws = $wq + (1 / $m); $ls = $l * $ws;
-                $this->steps = [
-                    "1. ρ = λ/μ = $l/$m = ".number_format($rho,4),
-                    "2. Lq = λ² / [μ(μ-λ)] = ".number_format($lq,4),
-                    "3. Wq = Lq / λ = ".number_format($wq,4)." h",
-                    "4. Ws = Wq + (1/μ) = ".number_format($ws,4)." h",
-                    "5. Ls = λ * Ws = ".number_format($ls,4)
+                
+                // En M/M/1, P0 es 1 - rho
+                $p0 = 1 - $rho;
+
+                $res = [
+                    'rho' => $rho, 
+                    'Lq' => $lq, 
+                    'Wq' => $wq, 
+                    'W' => $ws, 
+                    'L' => $ls, 
+                    'Pw' => $rho, 
+                    'P0' => $p0
                 ];
-                $res = ['rho' => $rho, 'Lq' => $lq, 'Wq' => $wq, 'W' => $ws, 'L' => $ls, 'Pw' => $rho];
             } 
             elseif ($this->model == 'MMs') {
-                $r = $l / $m; $rho = $r / $s;
+                $r = $l / $m; 
+                $rho = $r / $s;
                 if ($rho >= 1) throw new \Exception("Inestable (ρ >= 1)");
+                
                 $sum = 0;
-                for ($n = 0; $n < $s; $n++) { $sum += pow($r, $n) / $this->factorial($n); }
+                for ($n = 0; $n < $s; $n++) { 
+                    $sum += pow($r, $n) / $this->factorial($n); 
+                }
+                
                 $part2 = pow($r, $s) / ($this->factorial($s) * (1 - $rho));
                 $p0 = 1 / ($sum + $part2);
+                
                 $pw = (pow($r, $s) * $p0) / ($this->factorial($s) * (1 - $rho));
                 $lq = ($pw * $rho) / (1 - $rho);
-                $wq = $lq / $l; $ws = $wq + (1 / $m); $ls = $l * $ws;
-                $this->steps = [
-                    "1. Intensidad r = λ/μ = $r",
-                    "2. Prob. Vacío P0 = ".number_format($p0,4),
-                    "3. Prob. Espera Pw (Erlang-C) = ".number_format($pw,4),
-                    "4. Lq = (Pw * ρ) / (1-ρ) = ".number_format($lq,4),
-                    "5. Ws = Wq + (1/μ) = ".number_format($ws,4)." h",
-                    "6. Ls = λ * Ws = ".number_format($ls,4)
+                $wq = $lq / $l; 
+                $ws = $wq + (1 / $m); 
+                $ls = $l * $ws;
+
+                $res = [
+                    'rho' => $rho, 
+                    'Lq' => $lq, 
+                    'Wq' => $wq, 
+                    'W' => $ws, 
+                    'L' => $ls, 
+                    'Pw' => $pw, 
+                    'P0' => $p0
                 ];
-                $res = ['rho' => $rho, 'Lq' => $lq, 'Wq' => $wq, 'W' => $ws, 'L' => $ls, 'Pw' => $pw];
             }
             elseif ($this->model == 'MG1') {
                 $rho = $l / $m;
                 if ($rho >= 1) throw new \Exception("Inestable (λ ≥ μ)");
                 $lq = (pow($l, 2) * $v + pow($rho, 2)) / (2 * (1 - $rho));
                 $wq = $lq / $l; $ws = $wq + (1/$m); $ls = $l * $ws;
-                $this->steps = [
-                    "1. ρ = λ/μ = ".number_format($rho,4),
-                    "2. Lq (Pollaczek-Khinchine) = [ (λ²σ² + ρ²) / 2(1-ρ) ]",
-                    "3. Lq = [ (".($l**2)." * $v) + ".number_format($rho**2,4)." ] / ".(2*(1-$rho))." = ".number_format($lq,4),
-                    "4. Ws = Wq + (1/μ) = ".number_format($ws,4)." h",
-                    "5. Ls = λ * Ws = ".number_format($ls,4)
+                
+                $p0 = 1 - $rho;
+
+                $res = [
+                    'rho' => $rho, 
+                    'Lq' => $lq, 
+                    'Wq' => $wq, 
+                    'W' => $ws, 
+                    'L' => $ls, 
+                    'Pw' => $rho, 
+                    'P0' => $p0
                 ];
-                $res = ['rho' => $rho, 'Lq' => $lq, 'Wq' => $wq, 'W' => $ws, 'L' => $ls, 'Pw' => $rho];
             }
             elseif ($this->model == 'MM1K') {
                 $r = $l / $m;
                 $p0 = ($r == 1) ? (1 / ($k + 1)) : ((1 - $r) / (1 - pow($r, $k + 1)));
-                $pk = pow($r, $k) * $p0; $leff = $l * (1 - $pk);
+                $pk = pow($r, $k) * $p0; 
+                $leff = $l * (1 - $pk);
                 $ls = ($r == 1) ? ($k / 2) : ($r * (1 - ($k + 1) * pow($r, $k) + $k * pow($r, $k + 1))) / ((1 - $r) * (1 - pow($r, $k + 1)));
-                $ws = $ls / $leff; $wq = $ws - (1/$m); $lq = $leff * $wq;
-                $this->steps = [
-                    "1. r = λ/μ = ".number_format($r,4),
-                    "2. P0 = ".number_format($p0,4),
-                    "3. Pk (Bloqueo) = r^K * P0 = ".number_format($pk,4),
-                    "4. λeff = λ(1 - Pk) = ".number_format($leff,4),
-                    "5. Ws = Ls / λeff = ".number_format($ws,4)." h",
-                    "6. Ls (Sistema) = ".number_format($ls,4)
+                $ws = $ls / $leff; 
+                $wq = $ws - (1/$m); 
+                $lq = $leff * $wq;
+
+                $res = [
+                    'rho' => $leff/$m, 
+                    'Lq' => $lq, 
+                    'Wq' => $wq, 
+                    'W' => $ws, 
+                    'L' => $ls, 
+                    'Pw' => $pk, 
+                    'P0' => $p0
                 ];
-                $res = ['rho' => $leff/$m, 'Lq' => $lq, 'Wq' => $wq, 'W' => $ws, 'L' => $ls, 'Pw' => $pk];
             }
 
             $this->results = $res;
+
+            // ENVIAR DATOS COMPLETOS AL JAVASCRIPT
+            $this->dispatch('calculate-updated', [
+                'results' => $this->results,
+                'model'   => $this->model,
+                'params'  => [
+                    'l' => $l,
+                    'm' => $m,
+                    's' => $s,
+                    'v' => $v,
+                    'k' => $k
+                ]
+            ]);
+
             if ($shouldSave) {
                 Calculation::create([
                     'model_type' => $this->model,
@@ -126,8 +162,14 @@ class QueueCalculator extends Component
                     'results' => $res
                 ]);
             }
-        } catch (\Exception $e) { session()->flash('error', $e->getMessage()); }
+        } catch (\Exception $e) { 
+            session()->flash('error', $e->getMessage()); 
+        }
     }
 
-    public function render() { return view('livewire.queue-calculator', ['history' => Calculation::latest()->take(10)->get()]); }
+    public function render() { 
+        return view('livewire.queue-calculator', [
+            'history' => Calculation::latest()->take(10)->get()
+        ]); 
+    }
 }
