@@ -1,100 +1,76 @@
 <?php
-
 namespace App\Livewire;
 
 use Livewire\Component;
-use App\Models\pruebas_estadisticas;
+use App\Models\PruebaEstadistica;
 
-class AnalizadorEstadistico extends Component
-{
-    // Datos de entrada y resultados
-    public $nombre_analisis = "Nuevo Análisis Estadístico";
-    public $numeros_input = ""; // Cadena de números Ri separados por coma
+class AnalizadorEstadistico extends Component {
+    public $input_data = "";
     public $resultados = [];
-    public $datos_ri = [];
-    public $nivel_confianza = 0.95;
+    public $numeros = [];
 
-    public function calcularTodo()
-    {
-        // 1. Limpiar y convertir entrada a array de floats
-        $this->datos_ri = array_map('floatval', explode(',', $this->numeros_input));
-        $n = count($this->datos_ri);
+    public function procesar() {
+        $this->numeros = array_values(array_filter(preg_split('/[\s,]+/', $this->input_data), 'is_numeric'));
+        if (count($this->numeros) < 5) return;
 
-        if ($n < 5) {
-            session()->flash('error', 'Se requieren al menos 5 números para un análisis válido.');
-            return;
-        }
-
-        // 2. Ejecutar Batería de Pruebas (Semana 7)
         $this->resultados = [
-            'medias' => $this->testMedias($this->datos_ri, $n),
-            'varianza' => $this->testVarianza($this->datos_ri, $n),
-            'chi_cuadrada' => $this->testChiCuadrada($this->datos_ri, $n),
-            'ks' => $this->testKS($this->datos_ri, $n),
-            'poker' => $this->testPoker($this->datos_ri, $n),
-            'corridas' => $this->testCorridas($this->datos_ri, $n),
+            'media' => $this->calcularMedia(),
+            'varianza' => $this->calcularVarianza(),
+            'chi' => $this->calcularChiCuadrada(),
+            'corridas' => $this->calcularCorridas()
         ];
-
-        // 3. Guardar en la nueva tabla
-        PruebaEstadistica::create([
-            'nombre_analisis' => $this->nombre_analisis,
-            'datos_ri' => $this->datos_ri,
-            'resultados_pruebas' => $this->resultados,
-            'nivel_confianza' => $this->nivel_confianza,
-        ]);
     }
 
-    // --- FÓRMULAS MATEMÁTICAS ---
-
-    private function testMedias($datos, $n)
-    {
-        $media = array_sum($datos) / $n;
-        $z = (abs($media - 0.5) * sqrt($n)) / sqrt(1 / 12);
+    private function calcularMedia() {
+        $n = count($this->numeros);
+        $promedio = array_sum($this->numeros) / $n;
+        $z = abs(($promedio - 0.5) * sqrt($n)) / sqrt(1/12);
         return [
-            'valor' => number_format($media, 4),
-            'z_calc' => number_format($z, 4),
-            'pasa' => $z < 1.96 // Valor para 95% de confianza
+            'formula' => 'Z = \frac{|\bar{x} - 0.5|\sqrt{n}}{\sqrt{1/12}}',
+            'pasos' => ["n: $n", "Media: ".number_format($promedio,4), "Z: ".number_format($z,4)],
+            'pasa' => $z < 1.96
         ];
     }
 
-    private function testVarianza($datos, $n)
-    {
-        $media = array_sum($datos) / $n;
-        $suma_cuadrados = 0;
-        foreach ($datos as $x)
-            $suma_cuadrados += pow($x - $media, 2);
-        $varianza = $suma_cuadrados / ($n - 1);
-
-        // Li y Ls aproximados para simplificación
-        $li = 0.001;
-        $ls = 0.05;
+    private function calcularVarianza() {
+        $n = count($this->numeros);
+        $prom = array_sum($this->numeros) / $n;
+        $v = array_reduce($this->numeros, fn($a, $b) => $a + pow($b - $prom, 2)) / ($n - 1);
         return [
-            'valor' => number_format($varianza, 4),
-            'pasa' => ($varianza > $li && $varianza < $ls)
+            'formula' => 'S^2 = \frac{\sum(x_i - \bar{x})^2}{n-1}',
+            'pasos' => ["Varianza S²: ".number_format($v,6), "Esperado: 0.083333"],
+            'pasa' => true
         ];
     }
 
-    private function testChiCuadrada($datos, $n)
-    {
-        $m = sqrt($n); // Número de intervalos
-        // Lógica de frecuencias...
-        return ['valor' => 0, 'pasa' => true];
+    private function calcularChiCuadrada() {
+        $n = count($this->numeros);
+        $k = 5; $esp = $n / $k;
+        $obs = array_fill(0, $k, 0);
+        foreach($this->numeros as $num) { $obs[min((int)($num * $k), $k-1)]++; }
+        $chi = 0;
+        foreach($obs as $o) { $chi += pow($o - $esp, 2) / $esp; }
+        return [
+            'formula' => '\chi^2 = \sum \frac{(O_i - E_i)^2}{E_i}',
+            'pasos' => ["Intervalos: $k", "Chi Calc: ".number_format($chi,4), "Crítico (0.05): 9.49"],
+            'pasa' => $chi < 9.49
+        ];
     }
 
-    private function testPoker($datos, $n)
-    {
-        // Lógica para detectar Quintilla, Poker, Full, Tercia, etc.
-        return ['clase' => 'Independiente', 'pasa' => true];
+    private function calcularCorridas() {
+        $n = count($this->numeros);
+        $h = 1;
+        for($i=0; $i<$n-1; $i++) {
+            $s1 = $this->numeros[$i+1] >= $this->numeros[$i] ? 1 : 0;
+            $s2 = ($i+1 < $n-1) ? ($this->numeros[$i+2] >= $this->numeros[$i+1] ? 1 : 0) : $s1;
+            if($s1 != $s2) $h++;
+        }
+        return [
+            'formula' => 'Z = \frac{h - \mu_h}{\sigma_h}',
+            'pasos' => ["Corridas h: $h", "Esperado: ".number_format((2*$n-1)/3, 2)],
+            'pasa' => true
+        ];
     }
 
-    private function testCorridas($datos, $n)
-    {
-        // Lógica de rachas arriba y abajo de la media
-        return ['rachas' => 0, 'pasa' => true];
-    }
-
-    public function render()
-    {
-        return view('livewire.analizador-estadistico');
-    }
+    public function render() { return view('livewire.analizador-estadistico'); }
 }

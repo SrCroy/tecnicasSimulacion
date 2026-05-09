@@ -142,7 +142,7 @@
             </a>
 
             <!-- Card 4: Pruebas -->
-            <a href="#" class="group block bg-white rounded-2xl border border-neutral-200 p-6 hover:border-amber-400 hover:shadow-lg hover:shadow-amber-50 transition-all duration-200">
+            <a href="{{ route('pruebas-estadisticas') }}" class="group block bg-white rounded-2xl border border-neutral-200 p-6 hover:border-amber-400 hover:shadow-lg hover:shadow-amber-50 transition-all duration-200">
                 <div class="flex items-start justify-between mb-5">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">

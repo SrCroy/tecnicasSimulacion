@@ -8,21 +8,9 @@ use App\Models\MetodoCongruencial;
 class GeneradorCongruencial extends Component
 {
     public $metodo = 'lineal';
-    public $x0, $a, $b, $c, $m;
+    public $x0, $x_atras, $a, $b, $c, $m;
     public $cantidad = 7;
     public $resultados = [];
-
-    public function limpiar()
-    {
-        $this->x0 = null;
-        $this->a = null;
-        $this->b = null;
-        $this->c = null;
-        $this->m = null;
-        $this->cantidad = 7;
-        $this->resultados = [];
-        session()->forget('error');
-    }
 
     public function generar()
     {
@@ -34,11 +22,8 @@ class GeneradorCongruencial extends Component
 
         $m = (int)$this->m;
         $cant = (int)$this->cantidad;
-
-        // Secuencia predefinida para el Algoritmo Aditivo (Ejemplo 2.9 del libro)
-        $secuencia_aditiva = [65, 89, 98, 3, 69];
-
         $xn = (int)$this->x0;
+        $xn_anterior = (int)$this->x_atras; 
         $a = (int)$this->a;
         $b = (int)$this->b;
         $c = (int)$this->c;
@@ -48,53 +33,44 @@ class GeneradorCongruencial extends Component
             $proximo_xn = 0;
 
             switch ($this->metodo) {
+                case 'mixto': // Para incisos a y b de la guía
+                    $val_op = ($a * $xn + $c);
+                    $proximo_xn = $val_op % $m;
+                    $detalle = "Fórmula Mixta: ($a * $xn + $c) mod $m. Operación: $val_op mod $m";
+                    break;
+
+                case 'segundo_orden': // Inciso E
+                    $val_op = ($a * $xn + $b * $xn_anterior);
+                    $proximo_xn = $val_op % $m;
+                    $detalle = "Fórmula: ($a*$xn + $b*$xn_anterior) mod $m";
+                    break;
+                
                 case 'lineal':
                     $val_op = ($a * $xn + $c);
                     $proximo_xn = $val_op % $m;
-                    $detalle = "Fórmula: ($a * $xn + $c) mod $m. Operación: $val_op mod $m";
+                    $detalle = "Fórmula: ($a * $xn + $c) mod $m";
                     break;
 
-                case 'multiplicativo':
+                case 'multiplicativo': // Inciso C
                     $val_op = ($a * $xn);
                     $proximo_xn = $val_op % $m;
-                    $detalle = "Fórmula: ($a * $xn) mod $m. Operación: $val_op mod $m";
+                    $detalle = "Fórmula: ($a * $xn) mod $m";
                     break;
 
-                case 'aditivo':
-                    // X(n+1) = (Xn + Xn-k) mod m
-                    $val_actual = $secuencia_aditiva[count($secuencia_aditiva) - 1];
-                    $val_rezago = $secuencia_aditiva[$i];
-                    $val_op = ($val_actual + $val_rezago);
-                    $proximo_xn = $val_op % $m;
-                    $detalle = "Fórmula: ($val_actual + $val_rezago) mod $m. Operación: $val_op mod $m";
-                    $secuencia_aditiva[] = $proximo_xn;
-                    $xn = $val_actual;
+                case 'aditivo': // Inciso D (cuando a=1)
+                    $proximo_xn = ($xn + $c) % $m;
+                    $detalle = "Fórmula Aditiva: ($xn + $c) mod $m";
                     break;
 
                 case 'cuadratico':
-                    // Fórmula completa: (a*xn² + b*xn + c) mod m
                     $val_op = ($a * pow($xn, 2) + $b * $xn + $c);
                     $proximo_xn = $val_op % $m;
-                    $detalle = "Fórmula: ($a*xn² + $b*xn + $c) mod $m. Operación: $val_op mod $m";
-                    break;
-
-                case 'blum_blum':
-                    $val_op = pow($xn, 2);
-                    $proximo_xn = (int)$val_op % $m;
-                    $detalle = "Fórmula: xn² mod $m. Operación: $val_op mod $m";
-                    break;
-
-                case 'no_lineal':
-                    $val_op = ($a * ($xn + 1) + $c);
-                    $proximo_xn = $val_op % $m;
-                    $detalle = "Fórmula: ($a*(xn+1)+$c) mod $m";
+                    $detalle = "Fórmula Cuadrática: ($a*xn² + $b*xn + $c) mod $m";
                     break;
             }
 
-            // Lógica de TRUNCADO a 4 decimales y divisor m-1
-            $valor_real_ri = $proximo_xn / ($m - 1);
-            $ri_truncado = floor($valor_real_ri * 10000) / 10000;
-            $ri = number_format($ri_truncado, 4, '.', '');
+            // Cálculo de Ri con truncado a 4 decimales
+            $ri = number_format(floor(($proximo_xn / ($m - 1)) * 10000) / 10000, 4, '.', '');
 
             $this->resultados[] = [
                 'i' => $i + 1,
@@ -104,22 +80,15 @@ class GeneradorCongruencial extends Component
                 'detalle' => $detalle . ". Resultado: **$proximo_xn**"
             ];
 
-            // Actualizar xn para la siguiente iteración (excepto en aditivo que usa su propia secuencia)
-            if ($this->metodo != 'aditivo') {
-                $xn = $proximo_xn;
+            if ($this->metodo == 'segundo_orden') {
+                $xn_anterior = $xn;
             }
+            $xn = $proximo_xn;
         }
 
-        // Guardar en la base de datos
         MetodoCongruencial::create([
             'metodo' => $this->metodo,
-            'parametros' => [
-                'x0' => $this->x0,
-                'a' => $a,
-                'b' => $b,
-                'c' => $c,
-                'm' => $m
-            ],
+            'parametros' => ['x0' => $this->x0, 'x_atras' => $this->x_atras, 'a' => $a, 'b' => $b, 'c' => $c, 'm' => $m],
             'lista_numeros' => $this->resultados
         ]);
     }

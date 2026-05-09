@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Livewire\AnalizadorEstadistico;
 use Illuminate\Support\Facades\Route;
 use App\Livewire\QueueCalculator;
 use App\Livewire\GeneradorPseudoaleatorio;
 use App\Livewire\GeneradorCongruencial;
+
 
 Route::get('/', function () {
     return view('welcome');
@@ -21,6 +23,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/calculadora', QueueCalculator::class)->name('calculadora');
     Route::get('/generador', GeneradorPseudoaleatorio::class)->name('generador');
     Route::get('/congruenciales', GeneradorCongruencial::class)->name('congruenciales');
+    Route::get('/pruebas-estadisticas', AnalizadorEstadistico::class)->name('pruebas-estadisticas');
 });
 
 require __DIR__ . '/auth.php';

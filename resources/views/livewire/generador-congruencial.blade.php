@@ -12,9 +12,11 @@
                 <label class="block text-[10px] font-bold text-gray-400 uppercase">Seleccionar Algoritmo</label>
                 <select wire:model.live="metodo"
                     class="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-sm font-bold text-gray-700">
-                    <option value="lineal">Algoritmo Lineal</option>
-                    <option value="multiplicativo">Congruencial Multiplicativo</option>
-                    <option value="aditivo">Algoritmo Aditivo</option>
+                    <option value="mixto">Congruencial Mixto (Incisos A, B)</option>
+                    <option value="multiplicativo">Congruencial Multiplicativo (Inciso C)</option>
+                    <option value="aditivo">Algoritmo Aditivo (Inciso D)</option>
+                    <option value="segundo_orden">Segundo Orden (Inciso E)</option>
+                    <option value="lineal">Algoritmo Lineal General</option>
                     <option value="cuadratico">Algoritmo Cuadrático</option>
                     <option value="blum_blum">Blum Blum Shub</option>
                     <option value="no_lineal">Algoritmo No Lineal</option>
@@ -26,6 +28,14 @@
                         <input type="number" wire:model="x0"
                             class="w-full p-2 border rounded-md text-sm border-gray-300" placeholder="Ej: 7">
                     </div>
+
+                    @if($metodo == 'segundo_orden')
+                    <div>
+                        <label class="text-[10px] font-bold text-orange-600 uppercase">Semilla Anterior (Xj-1)</label>
+                        <input type="number" wire:model="x_atras"
+                            class="w-full p-2 border border-orange-200 rounded-md bg-orange-50 text-sm" placeholder="Ej: 43">
+                    </div>
+                    @endif
 
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase">Módulo (m)</label>
@@ -41,7 +51,7 @@
                     </div>
                     @endif
 
-                    @if($metodo == 'cuadratico')
+                    @if(in_array($metodo, ['cuadratico', 'segundo_orden']))
                     <div>
                         <label class="text-[10px] font-bold text-green-600 uppercase">Constante (b)</label>
                         <input type="number" wire:model="b"
@@ -50,7 +60,7 @@
                     </div>
                     @endif
 
-                    @if(in_array($metodo, ['lineal', 'cuadratico', 'no_lineal']))
+                    @if(in_array($metodo, ['lineal', 'mixto', 'aditivo', 'cuadratico', 'no_lineal']))
                     <div>
                         <label class="text-[10px] font-bold text-purple-600 uppercase">Incremento (c)</label>
                         <input type="number" wire:model="c"
@@ -93,23 +103,22 @@
                 </div>
 
                 <div class="bg-white rounded-lg border border-gray-100 overflow-hidden text-xs">
-                    <table class="min-w-full">
+                    <table class="min-w-full text-center">
                         <thead class="bg-gray-800 text-white uppercase text-[9px]">
                             <tr>
                                 <th class="p-2">i</th>
-                                <th class="p-2 text-center">Xn (Actual)</th>
-                                <th class="p-2 text-center">Xn+1 (Siguiente)</th>
-                                <th class="p-2 text-right">Ri (Xn+1 / m)</th>
+                                <th class="p-2">Xn (Actual)</th>
+                                <th class="p-2">Xn+1 (Siguiente)</th>
+                                <th class="p-2">Ri (Xn+1 / m-1)</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach($resultados as $r)
                             <tr class="hover:bg-indigo-50 transition">
                                 <td class="p-2 text-gray-400 border-r">{{ $r['i'] }}</td>
-                                <td class="p-2 text-center font-mono text-gray-500 italic">{{ $r['xn'] }}</td>
-                                <td class="p-2 text-center font-bold text-indigo-700 text-sm">{{ $r['proximo_xn'] }}
-                                </td>
-                                <td class="p-2 text-right font-bold text-green-600 text-sm">{{ $r['ri'] }}</td>
+                                <td class="p-2 font-mono text-gray-500 italic">{{ $r['xn'] }}</td>
+                                <td class="p-2 font-bold text-indigo-700 text-sm">{{ $r['proximo_xn'] }}</td>
+                                <td class="p-2 font-bold text-green-600 text-sm">{{ $r['ri'] }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -123,7 +132,7 @@
                     <span>Historial de Algoritmos</span>
                     <span class="text-[9px] text-gray-400 italic">Desliza para ver más</span>
                 </div>
-                <div class="h-[300px] overflow-y-scroll custom-scrollbar bg-gray-50">
+                <div class="h-[300px] overflow-y-scroll custom-scrollbar bg-gray-50 text-left">
                     <table class="min-w-full text-xs text-left">
                         <tbody class="divide-y divide-gray-200">
                             @foreach($historial as $h)
@@ -133,8 +142,7 @@
                                     <span class="font-bold">X0:</span> {{ $h->parametros['x0'] }} |
                                     <span class="font-bold">m:</span> {{ $h->parametros['m'] }}
                                 </td>
-                                <td class="p-3 text-right text-gray-400 text-[10px]">{{ $h->created_at->diffForHumans()
-                                    }}</td>
+                                <td class="p-3 text-right text-gray-400 text-[10px]">{{ $h->created_at->diffForHumans() }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -145,25 +153,10 @@
     </div>
 
     <style>
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-
-        .custom-scrollbar {
-            scrollbar-width: thin;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .custom-scrollbar { scrollbar-width: thin; }
     </style>
 </div>
