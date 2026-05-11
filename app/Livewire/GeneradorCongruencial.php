@@ -12,9 +12,16 @@ class GeneradorCongruencial extends Component
     public $cantidad = 10;
     public $resultados = [];
     
-    // Propiedades para las pruebas estadísticas
+    // Propiedades estadísticas base
     public $media = 0, $varianza = 0, $periodo = 0;
     public $poker = ['TD' => 0, '1P' => 0, '2P_T' => 0, 'PK' => 0];
+    
+    // Resultados de Pruebas (Literales A, B, C, D)
+    public $media_z = 0, $media_pasa = false;
+    public $varianza_pasa = false;
+    public $chi_calc = 0, $chi_pasa = false;
+    public $corridas_h = 0, $corridas_z = 0, $corridas_pasa = false;
+    public $corridas_media_b = 0, $corridas_media_z = 0, $corridas_media_pasa = false;
 
     public function generar()
     {
@@ -76,24 +83,12 @@ class GeneradorCongruencial extends Component
 
         for ($i = 0; $i < $cant; $i++) {
             $proximo_xn = 0;
-
             switch ($this->metodo) {
-                case 'mixto':
-                case 'lineal':
-                    $proximo_xn = ($a * $xn + $c) % $m;
-                    break;
-                case 'segundo_orden':
-                    $proximo_xn = ($a * $xn + $b * $xn_anterior) % $m;
-                    break;
-                case 'multiplicativo':
-                    $proximo_xn = ($a * $xn) % $m;
-                    break;
-                case 'aditivo':
-                    $proximo_xn = ($xn + $c) % $m;
-                    break;
-                case 'cuadratico':
-                    $proximo_xn = ($a * pow($xn, 2) + $b * $xn + $c) % $m;
-                    break;
+                case 'mixto': case 'lineal': $proximo_xn = ($a * $xn + $c) % $m; break;
+                case 'segundo_orden': $proximo_xn = ($a * $xn + $b * $xn_anterior) % $m; break;
+                case 'multiplicativo': $proximo_xn = ($a * $xn) % $m; break;
+                case 'aditivo': $proximo_xn = ($xn + $c) % $m; break;
+                case 'cuadratico': $proximo_xn = ($a * pow($xn, 2) + $b * $xn + $c) % $m; break;
             }
 
             if ($this->periodo == 0 && in_array($proximo_xn, $historial_xn)) {
@@ -101,19 +96,16 @@ class GeneradorCongruencial extends Component
             }
             $historial_xn[] = $proximo_xn;
 
-            $ri = ($m > 1) ? floor(($proximo_xn / ($m - 1)) * 10000) / 10000 : 0;
+            $ri = $proximo_xn / $m;
 
             $this->resultados[] = [
                 'i' => $i + 1,
                 'xn' => $xn,
-                'xn_anterior' => ($this->metodo == 'segundo_orden') ? $xn_anterior : null,
                 'proximo_xn' => $proximo_xn,
-                'ri' => number_format($ri, 4, '.', '')
+                'ri' => number_format($ri, 6, '.', '')
             ];
 
-            if ($this->metodo == 'segundo_orden') {
-                $xn_anterior = $xn;
-            }
+            if ($this->metodo == 'segundo_orden') { $xn_anterior = $xn; }
             $xn = $proximo_xn;
         }
 
@@ -125,36 +117,63 @@ class GeneradorCongruencial extends Component
         if (empty($this->resultados)) return;
 
         $n = count($this->resultados);
-        $coleccionRi = array_column($this->resultados, 'ri');
+        $ri = array_column($this->resultados, 'ri');
 
-        // 1. Media
-        $this->media = array_sum($coleccionRi) / $n;
+        // 1. Media y Varianza
+        $this->media = array_sum($ri) / $n;
+        $this->media_z = abs(($this->media - 0.5) * sqrt($n)) / sqrt(1/12);
+        $this->media_pasa = $this->media_z < 1.96;
 
-        // 2. Varianza
-        $sumaCuadrados = 0;
-        foreach ($coleccionRi as $val) {
-            $sumaCuadrados += pow($val - $this->media, 2);
+        $sumaSqr = 0;
+        foreach ($ri as $v) { $sumaSqr += pow($v - $this->media, 2); }
+        $this->varianza = $n > 1 ? $sumaSqr / ($n - 1) : 0;
+        $this->varianza_pasa = ($this->varianza > 0.07 && $this->varianza < 0.09);
+
+        // 2. Uniformidad (Chi-Cuadrada)
+        $k = 5; $esp = $n / $k; $obs = array_fill(0, $k, 0);
+        foreach ($ri as $v) { $idx = min((int)($v * $k), $k - 1); $obs[$idx]++; }
+        $this->chi_calc = 0;
+        foreach ($obs as $o) { $this->chi_calc += pow($o - $esp, 2) / $esp; }
+        $this->chi_pasa = $this->chi_calc < 9.49;
+
+        // 3. Corridas Arriba/Abajo
+        $s = []; 
+        for ($i = 0; $i < $n - 1; $i++) { $s[] = ($ri[$i+1] > $ri[$i]) ? '+' : '-'; }
+        $h = 1; 
+        for ($i = 0; $i < count($s) - 1; $i++) { if ($s[$i] != $s[$i+1]) $h++; }
+        $mu_h = (2 * $n - 1) / 3;
+        $sigma_h = sqrt((16 * $n - 29) / 90);
+        $this->corridas_h = $h;
+        $this->corridas_z = abs(($h - $mu_h) / $sigma_h);
+        $this->corridas_pasa = $this->corridas_z < 1.96;
+
+        // 4. Corridas sobre la Media
+        $n1 = 0; $n2 = 0; $sec = [];
+        foreach ($ri as $v) { 
+            if ($v >= 0.5) { $n1++; $sec[] = '1'; } else { $n2++; $sec[] = '0'; }
         }
-        $this->varianza = $n > 1 ? $sumaCuadrados / ($n - 1) : 0;
+        $b = 1;
+        for ($i = 0; $i < count($sec) - 1; $i++) { if ($sec[$i] != $sec[$i+1]) $b++; }
+        
+        // CORRECCIÓN AQUÍ: Se eliminó el $ antes del 2
+        $mu_b = ((2 * $n1 * $n2) / $n) + 0.5;
+        $den_b = ($n * $n * ($n - 1));
+        $sigma_b = ($den_b > 0) ? sqrt((2 * $n1 * $n2 * (2 * $n1 * $n2 - $n)) / $den_b) : 1;
+        
+        $this->corridas_media_b = $b;
+        $this->corridas_media_z = ($sigma_b > 0) ? abs(($b - $mu_b) / $sigma_b) : 0;
+        $this->corridas_media_pasa = $this->corridas_media_z < 1.96;
 
-        // 3. Prueba de Póker (Clasificación de 4 decimales)
+        // 5. Poker
         $this->poker = ['TD' => 0, '1P' => 0, '2P_T' => 0, 'PK' => 0];
-        foreach ($coleccionRi as $ri) {
-            $partes = explode('.', $ri);
-            $decimales = isset($partes[1]) ? str_pad(substr($partes[1], 0, 4), 4, '0') : '0000';
-            
-            $conteo = array_count_values(str_split($decimales));
-            $distintos = count($conteo);
-
-            if ($distintos == 4) {
-                $this->poker['TD']++; // Todos Diferentes
-            } elseif ($distintos == 3) {
-                $this->poker['1P']++; // Un Par
-            } elseif ($distintos == 2) {
-                $this->poker['2P_T']++; // Dos Pares o Tercia
-            } elseif ($distintos == 1) {
-                $this->poker['PK']++; // Póker
-            }
+        foreach ($ri as $v) {
+            $dec = str_pad(substr(explode('.', $v)[1] ?? '0', 0, 4), 4, '0');
+            $counts = array_count_values(str_split($dec));
+            $dist = count($counts);
+            if ($dist == 4) $this->poker['TD']++;
+            elseif ($dist == 3) $this->poker['1P']++;
+            elseif ($dist == 2) $this->poker['2P_T']++;
+            elseif ($dist == 1) $this->poker['PK']++;
         }
     }
 
@@ -165,22 +184,31 @@ class GeneradorCongruencial extends Component
             'metodo' => $this->metodo,
             'stats' => [
                 'media' => number_format($this->media, 4),
+                'media_z' => number_format($this->media_z, 4),
+                'media_pasa' => $this->media_pasa,
                 'varianza' => number_format($this->varianza, 4),
-                'periodo' => $this->periodo,
-                'poker' => $this->poker
+                'chi_calc' => number_format($this->chi_calc, 4),
+                'chi_pasa' => $this->chi_pasa,
+                'corridas' => [
+                    'h' => $this->corridas_h,
+                    'z' => number_format($this->corridas_z, 4),
+                    'pasa' => $this->corridas_pasa
+                ],
+                'corridas_media' => [
+                    'b' => $this->corridas_media_b,
+                    'z' => number_format($this->corridas_media_z, 4),
+                    'pasa' => $this->corridas_media_pasa
+                ],
+                'poker' => $this->poker,
+                'periodo' => $this->periodo
             ],
-            'params' => [
-                'a' => $this->a, 
-                'b' => $this->b, 
-                'c' => $this->c, 
-                'm' => $this->m
-            ]
+            'params' => ['a' => $this->a, 'm' => $this->m]
         ]);
     }
 
     public function limpiar()
     {
-        $this->reset(['x0', 'x_atras', 'a', 'b', 'c', 'm', 'resultados', 'media', 'varianza', 'periodo', 'poker']);
+        $this->reset(['x0', 'a', 'c', 'm', 'resultados', 'media', 'varianza', 'periodo', 'poker', 'media_z', 'media_pasa', 'chi_calc', 'chi_pasa', 'corridas_h', 'corridas_z', 'corridas_pasa', 'corridas_media_b', 'corridas_media_z', 'corridas_media_pasa']);
     }
 
     public function render()
