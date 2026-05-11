@@ -23,7 +23,6 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        
         <div class="lg:col-span-1 bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm sticky top-10">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-2">
@@ -54,28 +53,28 @@
 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2 md:col-span-1">
-                        <label class="block text-[10px] font-mono font-bold text-neutral-500 uppercase mb-2">Semilla (<span class="font-serif italic text-xs">X₀</span>)</label>
+                        <label class="block text-[10px] font-mono font-bold text-neutral-500 uppercase mb-2">Semilla (X₀)</label>
                         <input type="number" wire:model="x0" class="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-cyan-500 outline-none">
                     </div>
                     <div class="col-span-2 md:col-span-1">
-                        <label class="block text-[10px] font-mono font-bold text-neutral-500 uppercase mb-2">Módulo (<span class="font-serif italic text-xs">m</span>)</label>
+                        <label class="block text-[10px] font-mono font-bold text-neutral-500 uppercase mb-2">Módulo (m)</label>
                         <input type="number" wire:model="m" class="w-full p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-cyan-500 outline-none">
                     </div>
                     @if(!in_array($metodo, ['aditivo']))
                     <div class="col-span-2 md:col-span-1">
-                        <label class="block text-[10px] font-mono font-bold text-blue-600 uppercase mb-2">Constante (<span class="font-serif italic text-xs">a</span>)</label>
+                        <label class="block text-[10px] font-mono font-bold text-blue-600 uppercase mb-2">Constante (a)</label>
                         <input type="number" wire:model="a" class="w-full p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     @endif
                     @if(in_array($metodo, ['cuadratico', 'segundo_orden']))
                     <div class="col-span-2 md:col-span-1">
-                        <label class="block text-[10px] font-mono font-bold text-green-600 uppercase mb-2">Constante (<span class="font-serif italic text-xs">b</span>)</label>
+                        <label class="block text-[10px] font-mono font-bold text-green-600 uppercase mb-2">Constante (b)</label>
                         <input type="number" wire:model="b" class="w-full p-3 bg-green-50 border border-green-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-green-500 outline-none">
                     </div>
                     @endif
                     @if(in_array($metodo, ['lineal', 'mixto', 'aditivo', 'cuadratico']))
                     <div class="col-span-2 md:col-span-1">
-                        <label class="block text-[10px] font-mono font-bold text-purple-600 uppercase mb-2">Incremento (<span class="font-serif italic text-xs">c</span>)</label>
+                        <label class="block text-[10px] font-mono font-bold text-purple-600 uppercase mb-2">Incremento (c)</label>
                         <input type="number" wire:model="c" class="w-full p-3 bg-purple-50 border border-purple-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-purple-500 outline-none">
                     </div>
                     @endif
@@ -85,7 +84,7 @@
                     </div>
                     @if($metodo == 'segundo_orden')
                     <div class="col-span-2">
-                        <label class="block text-[10px] font-mono font-bold text-orange-600 uppercase mb-2">Semilla Ant. (<span class="font-serif italic text-xs">Xⱼ₋₁</span>)</label>
+                        <label class="block text-[10px] font-mono font-bold text-orange-600 uppercase mb-2">Semilla Ant. (Xⱼ₋₁)</label>
                         <input type="number" wire:model="x_atras" class="w-full p-3 bg-orange-50 border border-orange-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-orange-500 outline-none">
                     </div>
                     @endif
@@ -99,6 +98,42 @@
 
         <div class="lg:col-span-2 space-y-6">
             @if(count($resultados) > 0)
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white border border-neutral-200 p-4 rounded-2xl shadow-sm">
+                    <p class="text-[10px] font-mono font-bold text-neutral-400 uppercase mb-1">Periodo</p>
+                    <p class="text-2xl font-bold text-neutral-900">{{ $periodo > 0 ? $periodo : 'N/A' }}</p>
+                </div>
+                <div class="bg-white border border-neutral-200 p-4 rounded-2xl shadow-sm">
+                    <p class="text-[10px] font-mono font-bold text-neutral-400 uppercase mb-1">Media (x̄)</p>
+                    <p class="text-2xl font-bold text-cyan-600">{{ number_format($media, 4) }}</p>
+                </div>
+                <div class="bg-white border border-neutral-200 p-4 rounded-2xl shadow-sm">
+                    <p class="text-[10px] font-mono font-bold text-neutral-400 uppercase mb-1">Varianza (σ²)</p>
+                    <p class="text-2xl font-bold text-purple-600">{{ number_format($varianza, 4) }}</p>
+                </div>
+                <div class="bg-white border border-neutral-200 p-4 rounded-2xl shadow-sm">
+                    <p class="text-[10px] font-mono font-bold text-neutral-400 uppercase mb-3 text-center tracking-widest">Prueba Póker</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex flex-col items-center p-2 bg-neutral-50 rounded-xl border border-neutral-100">
+                            <span class="text-[9px] font-mono text-neutral-500 uppercase">Diferentes</span>
+                            <span class="text-lg font-bold text-neutral-900">{{ $poker['TD'] }}</span>
+                        </div>
+                        <div class="flex flex-col items-center p-2 bg-cyan-50 rounded-xl border border-cyan-100">
+                            <span class="text-[9px] font-mono text-cyan-600 uppercase">Un Par</span>
+                            <span class="text-lg font-bold text-cyan-700">{{ $poker['1P'] }}</span>
+                        </div>
+                        <div class="flex flex-col items-center p-2 bg-purple-50 rounded-xl border border-purple-100">
+                            <span class="text-[9px] font-mono text-purple-600 uppercase">T / 2P</span>
+                            <span class="text-lg font-bold text-purple-700">{{ $poker['2P_T'] }}</span>
+                        </div>
+                        <div class="flex flex-col items-center p-2 bg-red-50 rounded-xl border border-red-100">
+                            <span class="text-[9px] font-mono text-red-600 uppercase">Póker</span>
+                            <span class="text-lg font-bold text-red-700">{{ $poker['PK'] }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm">
                 <div class="flex justify-between items-center mb-5">
                     <h3 class="text-sm font-mono font-bold text-neutral-500 uppercase tracking-wider">Resultados <span class="text-cyan-600">{{ $metodo }}</span></h3>
@@ -142,14 +177,7 @@
             </div>
         </div>
     </div>
-
-    <style>
-        .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 6px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 4px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 4px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #c2c2c2; }
-    </style>
-
+    
     <script>
         let congruencialChart = null;
 

@@ -11,6 +11,10 @@ class GeneradorCongruencial extends Component
     public $x0, $x_atras, $a, $b, $c, $m;
     public $cantidad = 10;
     public $resultados = [];
+    
+    // Propiedades para las pruebas estadísticas
+    public $media = 0, $varianza = 0, $periodo = 0;
+    public $poker = ['TD' => 0, '1P' => 0, '2P_T' => 0, 'PK' => 0];
 
     public function generar()
     {
@@ -44,7 +48,8 @@ class GeneradorCongruencial extends Component
             $this->c = $registro->parametros['c'] ?? null;
             $this->m = $registro->parametros['m'];
             $this->resultados = $registro->lista_numeros;
-
+            
+            $this->calcularEstadisticas();
             $this->enviarEventoJS();
         }
     }
@@ -52,6 +57,7 @@ class GeneradorCongruencial extends Component
     private function ejecutarCalculos()
     {
         $this->resultados = [];
+        $this->periodo = 0;
         
         if (!(int)$this->m > 1) {
             session()->flash('error', 'El módulo (m) debe ser mayor a 1.');
@@ -66,6 +72,8 @@ class GeneradorCongruencial extends Component
         $b = (int)$this->b;
         $c = (int)$this->c;
 
+        $historial_xn = [];
+
         for ($i = 0; $i < $cant; $i++) {
             $proximo_xn = 0;
 
@@ -74,23 +82,24 @@ class GeneradorCongruencial extends Component
                 case 'lineal':
                     $proximo_xn = ($a * $xn + $c) % $m;
                     break;
-
                 case 'segundo_orden':
                     $proximo_xn = ($a * $xn + $b * $xn_anterior) % $m;
                     break;
-
                 case 'multiplicativo':
                     $proximo_xn = ($a * $xn) % $m;
                     break;
-
                 case 'aditivo':
                     $proximo_xn = ($xn + $c) % $m;
                     break;
-
                 case 'cuadratico':
                     $proximo_xn = ($a * pow($xn, 2) + $b * $xn + $c) % $m;
                     break;
             }
+
+            if ($this->periodo == 0 && in_array($proximo_xn, $historial_xn)) {
+                $this->periodo = count($historial_xn);
+            }
+            $historial_xn[] = $proximo_xn;
 
             $ri = ($m > 1) ? floor(($proximo_xn / ($m - 1)) * 10000) / 10000 : 0;
 
@@ -107,6 +116,46 @@ class GeneradorCongruencial extends Component
             }
             $xn = $proximo_xn;
         }
+
+        $this->calcularEstadisticas();
+    }
+
+    private function calcularEstadisticas()
+    {
+        if (empty($this->resultados)) return;
+
+        $n = count($this->resultados);
+        $coleccionRi = array_column($this->resultados, 'ri');
+
+        // 1. Media
+        $this->media = array_sum($coleccionRi) / $n;
+
+        // 2. Varianza
+        $sumaCuadrados = 0;
+        foreach ($coleccionRi as $val) {
+            $sumaCuadrados += pow($val - $this->media, 2);
+        }
+        $this->varianza = $n > 1 ? $sumaCuadrados / ($n - 1) : 0;
+
+        // 3. Prueba de Póker (Clasificación de 4 decimales)
+        $this->poker = ['TD' => 0, '1P' => 0, '2P_T' => 0, 'PK' => 0];
+        foreach ($coleccionRi as $ri) {
+            $partes = explode('.', $ri);
+            $decimales = isset($partes[1]) ? str_pad(substr($partes[1], 0, 4), 4, '0') : '0000';
+            
+            $conteo = array_count_values(str_split($decimales));
+            $distintos = count($conteo);
+
+            if ($distintos == 4) {
+                $this->poker['TD']++; // Todos Diferentes
+            } elseif ($distintos == 3) {
+                $this->poker['1P']++; // Un Par
+            } elseif ($distintos == 2) {
+                $this->poker['2P_T']++; // Dos Pares o Tercia
+            } elseif ($distintos == 1) {
+                $this->poker['PK']++; // Póker
+            }
+        }
     }
 
     private function enviarEventoJS()
@@ -114,6 +163,12 @@ class GeneradorCongruencial extends Component
         $this->dispatch('generador-updated', [
             'resultados' => $this->resultados,
             'metodo' => $this->metodo,
+            'stats' => [
+                'media' => number_format($this->media, 4),
+                'varianza' => number_format($this->varianza, 4),
+                'periodo' => $this->periodo,
+                'poker' => $this->poker
+            ],
             'params' => [
                 'a' => $this->a, 
                 'b' => $this->b, 
@@ -125,7 +180,7 @@ class GeneradorCongruencial extends Component
 
     public function limpiar()
     {
-        $this->reset(['x0', 'x_atras', 'a', 'b', 'c', 'm', 'resultados']);
+        $this->reset(['x0', 'x_atras', 'a', 'b', 'c', 'm', 'resultados', 'media', 'varianza', 'periodo', 'poker']);
     }
 
     public function render()
